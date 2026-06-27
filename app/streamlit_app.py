@@ -13,6 +13,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Home Ground Venues Mapping (matches train_models.py)
+HOME_VENUES = {
+    'Mumbai Indians': ['Wankhede', 'Brabourne', 'Dr DY Patil'],
+    'Chennai Super Kings': ['MA Chidambaram', 'Chepauk'],
+    'Kolkata Knight Riders': ['Eden Gardens'],
+    'Royal Challengers Bangalore': ['M Chinnaswamy', 'M.Chinnaswamy', 'Bengaluru'],
+    'Delhi Capitals': ['Arun Jaitley', 'Feroz Shah Kotla', 'Delhi'],
+    'Rajasthan Royals': ['Sawai Mansingh', 'Jaipur'],
+    'Punjab Kings': ['Punjab Cricket Association', 'PCA Stadium', 'Mohali', 'Dharamsala'],
+    'Sunrisers Hyderabad': ['Rajiv Gandhi International', 'Uppal', 'Hyderabad'],
+    'Gujarat Titans': ['Narendra Modi Stadium', 'Motera', 'Ahmedabad'],
+    'Lucknow Super Giants': ['Ekana', 'Lucknow']
+}
+
 # Custom CSS for premium dark aesthetics
 st.markdown("""
 <style>
@@ -112,7 +126,6 @@ def load_matches_data():
 match_model, player_data = load_models()
 df_matches = load_matches_data()
 
-
 st.markdown('<div class="main-title">IPL Prediction & Analytics Dashboard</div>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #94a3b8; font-size: 1.1rem; margin-bottom: 2rem;">Real-time match win-loss forecasting and player career profile metrics</div>', unsafe_allow_html=True)
 
@@ -139,6 +152,9 @@ else:
         team_rosters = player_data.get('team_rosters', {})
         batsman_stats = player_data['batsman_stats']
         bowler_stats = player_data['bowler_stats']
+        player_recent_runs = player_data.get('player_recent_runs', {})
+        player_recent_wickets = player_data.get('player_recent_wickets', {})
+        h2h_wins = player_data.get('h2h_wins', {})
         
         col1, col2 = st.columns(2)
         with col1:
@@ -187,27 +203,57 @@ else:
                 def aggregate_team_stats(selected_players):
                     sum_avg_runs = 0
                     sum_avg_wickets = 0
+                    sum_recent_runs = 0
+                    sum_recent_wickets = 0
                     for p in selected_players:
-                        # Batsman lookup
+                        # Career
                         bat_p = batsman_stats.get(p, {})
                         avg_runs = bat_p.get('career_avg_runs', 0)
+                        sum_avg_runs += avg_runs
                         
-                        # Bowler lookup
                         bowl_p = bowler_stats.get(p, {})
                         avg_wicks = bowl_p.get('career_avg_wickets', 0)
-                        
-                        sum_avg_runs += avg_runs
                         sum_avg_wickets += avg_wicks
-                    return sum_avg_runs, sum_avg_wickets
+                        
+                        # Recent Form (rolling 5)
+                        rec_runs = player_recent_runs.get(p, [])
+                        rec_avg_runs = sum(rec_runs) / max(1, len(rec_runs))
+                        sum_recent_runs += rec_avg_runs
+                        
+                        rec_wicks = player_recent_wickets.get(p, [])
+                        rec_avg_wicks = sum(rec_wicks) / max(1, len(rec_wicks))
+                        sum_recent_wickets += rec_avg_wicks
+                        
+                    return sum_avg_runs, sum_avg_wickets, sum_recent_runs, sum_recent_wickets
                     
-                t1_bat_avg, t1_bowl_avg = aggregate_team_stats(selected_xi_1)
-                t2_bat_avg, t2_bowl_avg = aggregate_team_stats(selected_xi_2)
+                t1_bat_avg, t1_bowl_avg, t1_rec_runs, t1_rec_bowl = aggregate_team_stats(selected_xi_1)
+                t2_bat_avg, t2_bowl_avg, t2_rec_runs, t2_rec_bowl = aggregate_team_stats(selected_xi_2)
+                
+                # Check Home Ground Advantage
+                is_home = 0
+                if team1 in HOME_VENUES:
+                    for v_key in HOME_VENUES[team1]:
+                        if v_key.lower() in str(venue).lower():
+                            is_home = 1
+                            break
+                            
+                # Head-to-Head stats
+                t1_vs_t2_wins = h2h_wins.get((team1, team2), 0)
+                t2_vs_t1_wins = h2h_wins.get((team2, team1), 0)
+                total_h2h = t1_vs_t2_wins + t2_vs_t1_wins
+                h2h_win_rate = t1_vs_t2_wins / total_h2h if total_h2h > 0 else 0.5
                 
                 input_df = pd.DataFrame([{
                     'team1_bat_avg': t1_bat_avg,
                     'team1_bowl_avg': t1_bowl_avg,
                     'team2_bat_avg': t2_bat_avg,
                     'team2_bowl_avg': t2_bowl_avg,
+                    'team1_recent_bat_runs': t1_rec_runs,
+                    'team1_recent_bowl_wickets': t1_rec_bowl,
+                    'team2_recent_bat_runs': t2_rec_runs,
+                    'team2_recent_bowl_wickets': t2_rec_bowl,
+                    'team1_is_home': is_home,
+                    'h2h_win_rate': h2h_win_rate,
                     'venue': venue
                 }])
                 
