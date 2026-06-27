@@ -2,6 +2,9 @@
 
 An interactive cricket analytics and machine learning application to predict Indian Premier League (IPL) match outcomes and view player career statistics. Built using historical ball-by-ball IPL dataset from [Cricsheet](https://cricsheet.org/).
 
+### Live Web Application
+Check out the live app here: [https://ipl-win-prediction-ff9ghxjaaz2rwncvavbitl.streamlit.app/](https://ipl-win-prediction-ff9ghxjaaz2rwncvavbitl.streamlit.app/)
+
 ##  Project Structure
 
 ```text
